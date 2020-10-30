@@ -43,6 +43,13 @@ mod incrementer {
             self.my_value_or_zero(&caller)
         }
 
+        #[ink(message)]
+        pub fn inc_mine(&mut self, by: u64) {
+            let caller = self.env().caller();
+            let value = self.my_value_or_zero(&caller);
+            self.my_value.insert(caller, value + by);
+        }
+
         fn my_value_or_zero(&self, of: &AccountId) -> u64 {
             *self.my_value.get(of).unwrap_or(&0)
         }
@@ -72,9 +79,13 @@ mod incrementer {
 
         #[ink::test]
         fn my_value_works() {
-            let contract = Incrementer::new(11);
+            let mut contract = Incrementer::new(11);
             assert_eq!(contract.get(), 11);
-            assert_eq!(contract.get_mine(), 0)
+            assert_eq!(contract.get_mine(), 0);
+            contract.inc_mine(5);
+            assert_eq!(contract.get_mine(), 5);
+            contract.inc_mine(10);
+            assert_eq!(contract.get_mine(), 15);
         }
     }
 }
