@@ -35,6 +35,22 @@ mod erc20 {
             self.balance_of_or_zero(&owner)
         }
 
+        #[ink(message)]
+        pub fn transfer(&mut self, to: AccountId, value: Balance) -> bool {
+            self.transfer_from_to(self.env().caller(), to, value)
+        }
+
+        fn transfer_from_to(&mut self, from: AccountId, to: AccountId, value: Balance) -> bool {
+            let from_balance = self.balance_of_or_zero(&from);
+            let to_balance = self.balance_of_or_zero(&to);
+            if from_balance < value {
+                return false;
+            }
+            self.balances.insert(from, from_balance - value);
+            self.balances.insert(to, to_balance + value);
+            true
+        }
+
         fn balance_of_or_zero(&self, owner: &AccountId) -> Balance {
             *self.balances.get(owner).unwrap_or(&0)
         }
@@ -59,6 +75,15 @@ mod erc20 {
             assert_eq!(contract.total_supply(), 100);
             assert_eq!(contract.balance_of(AccountId::from([0x1; 32])), 100);
             assert_eq!(contract.balance_of(AccountId::from([0x0; 32])), 0);
+        }
+
+        #[ink::test]
+        fn transfer_works() {
+            let mut contract = Erc20::new(100);
+            assert_eq!(contract.balance_of(AccountId::from([0x1; 32])), 100);
+            assert!(contract.transfer(AccountId::from([0x0; 32]), 10));
+            assert_eq!(contract.balance_of(AccountId::from([0x0; 32])), 10);
+            assert!(!contract.transfer(AccountId::from([0x0; 32]), 100));
         }
     }
 }
