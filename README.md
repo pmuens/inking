@@ -28,4 +28,7 @@ cargo +nightly-2020-10-06 contract build
 
 # Generate contract metadata (the contract ABI)
 cargo +nightly-2020-10-06 contract generate-metadata
+
+# Starting a canvas Substrate node
+~/.cargo/bin/canvas --dev --tmp
 ```
