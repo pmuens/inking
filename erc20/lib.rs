@@ -11,6 +11,8 @@ mod erc20 {
         total_supply: Balance,
         /// The balance of each user.
         balances: ink_storage::collections::HashMap<AccountId, Balance>,
+        /// Approval spender on behalf of the message's sender.
+        allowances: ink_storage::collections::HashMap<(AccountId, AccountId), Balance>,
     }
 
     #[ink(event)]
@@ -23,11 +25,22 @@ mod erc20 {
         value: Balance,
     }
 
+    #[ink(event)]
+    pub struct Approval {
+        #[ink(topic)]
+        owner: AccountId,
+        #[ink(topic)]
+        spender: AccountId,
+        #[ink(topic)]
+        value: Balance,
+    }
+
     impl Erc20 {
         #[ink(constructor)]
         pub fn new(initial_supply: Balance) -> Self {
             let caller = Self::env().caller();
             let mut balances = ink_storage::collections::HashMap::new();
+            let allowances = ink_storage::collections::HashMap::new();
             balances.insert(caller, initial_supply);
 
             let event = Transfer {
@@ -40,6 +53,7 @@ mod erc20 {
             Self {
                 total_supply: initial_supply,
                 balances,
+                allowances,
             }
         }
 
@@ -51,6 +65,38 @@ mod erc20 {
         #[ink(message)]
         pub fn balance_of(&self, owner: AccountId) -> Balance {
             self.balance_of_or_zero(&owner)
+        }
+
+        #[ink(message)]
+        pub fn approve(&mut self, spender: AccountId, value: Balance) -> bool {
+            let owner = self.env().caller();
+            self.allowances.insert((owner, spender), value);
+
+            let event = Approval {
+                owner,
+                spender,
+                value,
+            };
+            self.env().emit_event(event);
+
+            true
+        }
+
+        #[ink(message)]
+        pub fn allowance(&self, owner: AccountId, spender: AccountId) -> Balance {
+            self.allowance_of_or_zero(&owner, &spender)
+        }
+
+        #[ink(message)]
+        pub fn transfer_from(&mut self, from: AccountId, to: AccountId, value: Balance) -> bool {
+            let caller = self.env().caller();
+            let allowance = self.allowance_of_or_zero(&from, &caller);
+            if allowance < value {
+                return false;
+            }
+            self.allowances.insert((from, caller), allowance - value);
+            self.transfer_from_to(from, to, value);
+            true
         }
 
         #[ink(message)]
@@ -79,6 +125,10 @@ mod erc20 {
 
         fn balance_of_or_zero(&self, owner: &AccountId) -> Balance {
             *self.balances.get(owner).unwrap_or(&0)
+        }
+
+        fn allowance_of_or_zero(&self, owner: &AccountId, spender: &AccountId) -> Balance {
+            *self.allowances.get(&(*owner, *spender)).unwrap_or(&0)
         }
     }
 
@@ -110,6 +160,15 @@ mod erc20 {
             assert!(contract.transfer(AccountId::from([0x0; 32]), 10));
             assert_eq!(contract.balance_of(AccountId::from([0x0; 32])), 10);
             assert!(!contract.transfer(AccountId::from([0x0; 32]), 100));
+        }
+
+        #[ink::test]
+        fn transfer_from_works() {
+            let mut contract = Erc20::new(100);
+            assert_eq!(contract.balance_of(AccountId::from([0x1; 32])), 100);
+            contract.approve(AccountId::from([0x1; 32]), 20);
+            contract.transfer_from(AccountId::from([0x1; 32]), AccountId::from([0x0; 32]), 10);
+            assert_eq!(contract.balance_of(AccountId::from([0x0; 32])), 10);
         }
     }
 }
