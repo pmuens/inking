@@ -7,6 +7,7 @@ mod incrementer {
     #[ink(storage)]
     pub struct Incrementer {
         value: i32,
+        my_value: ink_storage::collections::HashMap<AccountId, u64>,
     }
 
     impl Incrementer {
@@ -14,6 +15,7 @@ mod incrementer {
         pub fn new(init_value: i32) -> Self {
             Self {
                 value: init_value,
+                my_value: ink_storage::collections::HashMap::new(),
             }
         }
 
@@ -21,6 +23,7 @@ mod incrementer {
         pub fn default() -> Self {
             Self {
                 value: 0,
+                my_value: Default::default(),
             }
         }
 
@@ -33,11 +36,23 @@ mod incrementer {
         pub fn inc(&mut self, by: i32) {
             self.value += by;
         }
+
+        #[ink(message)]
+        pub fn get_mine(&self) -> u64 {
+            let caller = self.env().caller();
+            self.my_value_or_zero(&caller)
+        }
+
+        fn my_value_or_zero(&self, of: &AccountId) -> u64 {
+            *self.my_value.get(of).unwrap_or(&0)
+        }
     }
 
     #[cfg(test)]
     mod tests {
         use super::*;
+
+        use ink_lang as ink;
 
         #[test]
         fn default_works() {
@@ -53,6 +68,13 @@ mod incrementer {
             assert_eq!(contract.get(), 47);
             contract.inc(-50);
             assert_eq!(contract.get(), -3);
+        }
+
+        #[ink::test]
+        fn my_value_works() {
+            let contract = Incrementer::new(11);
+            assert_eq!(contract.get(), 11);
+            assert_eq!(contract.get_mine(), 0)
         }
     }
 }
