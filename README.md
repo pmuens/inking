@@ -5,9 +5,6 @@ Playing around with the [ink!](https://github.com/paritytech/ink) Smart Contract
 ## Useful commands
 
 ```sh
-# Start a nix shell
-nix-shell
-
 # Install the Canvas Substrate node
 cargo +nightly-2020-10-06 install canvas-node --git https://github.com/paritytech/canvas-node.git --tag v0.1.0 --force
 
